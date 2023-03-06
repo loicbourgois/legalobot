@@ -1,0 +1,9 @@
+version: "3.0"
+services:
+  legalobot:
+    build:
+      context: $HOME/github.com/loicbourgois/$path
+      dockerfile: $HOME/github.com/loicbourgois/$path/Dockerfile
+    command: /root/github.com/loicbourgois/$path/main.sh
+    volumes:
+      - $HOME/github.com/loicbourgois/$path:/root/github.com/loicbourgois/$path:rw
