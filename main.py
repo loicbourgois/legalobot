@@ -264,9 +264,139 @@ def setup_code(code_name):
     )
 
 
+def format_code(code_name):
+    g['code_name'] = code_name
+    str_ = read(f"/root/github.com/loicbourgois/legalobot/{code_name}.xml")
+    for k, v in {
+        "<br/>": "\n",
+        '<div align="left">': "",
+        "</div>": ""
+    }.items():
+        str_ = str_.replace(k,v)
+    regex_lits = re.findall('(<!--[^-]*-->)', str_)
+    for x in regex_lits:
+        str_ = str_.replace(x, "")
+    for regex in [
+        '(<a class=\"alpha\" type=\"article-internal\" [^>]*>([^<]*)</a>)',
+        '(<a href=\"/affichCodeArticle\.do[^>]*>([^<]*)</a>)',
+        '(<a href=\"/affichTexteArticle\.do[^>]*>([^<]*)</a>)',
+        '(<a href=\"/affichCode\.do[^>]*>([^<]*)</a>)',
+        '(<a href=\"/affichTexte\.do[^>]*>([^<]*)</a>)',
+    ]:
+        for x in re.findall(regex, str_):
+            str_ = str_.replace(x[0], x[1])    
+    code = xmltodict.parse(str_ )
+    list_articles(code['code'], code)
+    write_force(
+        f"/root/github.com/loicbourgois/legalobot/codes/{code_name}.json", 
+        json.dumps(
+            data,
+            indent=2, 
+            ensure_ascii=False
+        ),
+    )
+    data_2 = {}
+    data_3 = {}
+    for x in data:
+        k = x['code-name'] + "/" + x['num'] 
+        data_3[k] = x
+        for i, y in enumerate(x['txt'].replace("\n", ". ").split('. ')):
+            kk = x['code-name'] + "/" + x['num'] + "/" + str(i)
+            if y.strip().endswith("."):
+                data_2[kk] = y.strip()
+            else:
+                data_2[kk] = y.strip() + "."
+    write_force(
+        f"/root/github.com/loicbourgois/legalobot/codes/{code_name}-2.json", 
+        json.dumps(
+            # pandas.DataFrame(data).to_dict('records'), 
+            data_2,
+            indent=2, 
+            ensure_ascii=False
+        ),
+    )
+    write_force(
+        f"/root/github.com/loicbourgois/legalobot/codes/{code_name}-3.json", 
+        json.dumps(
+            data_3,
+            indent=2, 
+            ensure_ascii=False
+        ),
+    )
+
+
+def embed_code(name):
+    logging.info("[start] load model")
+    from sentence_transformers import SentenceTransformer
+    model = SentenceTransformer('sentence-transformers/gtr-t5-xl')
+    logging.info("[ end ] load model")
+    data = json.loads(read(f"/root/github.com/loicbourgois/legalobot/codes/{name}.json"))
+    sentences = []
+    for i, x in enumerate(data):
+        logging.info(f"{i}/{len(data)}")
+        data[i]['embeddings'] = model.encode( [x['txt'].replace("\n", " ")] )
+    df = pandas.DataFrame(data)
+    df.to_parquet(f"/root/github.com/loicbourgois/legalobot/codes/{name}-4.parquet")
+
+
+def load_embeds(name):
+    return pandas.read_parquet(f"/root/github.com/loicbourgois/legalobot/codes/{name}-4.parquet")
+
+
+# format_code('code-civil')
+# embed_code('code-civil')
+
+data = load_embeds('code-civil')
+embeddings = [ x['embeddings'] for x in data ][0..10]
+query = "Je suis l'unique locataire d'un 27m² et j'envisage de faire habiter une connaissance avec moi. Dois-je le déclarer au propriétaire ? Cela implique-t-il de modifier le contrat de location ? Selon que ce soit le cas ou non, quel type de papiers devrais-je faire ? Que devrais-je prévoir selon vous ?"
+from sentence_transformers import SentenceTransformer, util
+model = SentenceTransformer('sentence-transformers/gtr-t5-xl')
+query_emb = model.encode(query)
+
+scores = util.dot_score(query_emb, embeddings)[0].cpu().tolist()
+
+
+
 # setup_code("code-du-patrimoine")
 
 
-answer_question("""
-Je suis l'unique locataire d'un 27m² et j'envisage de faire habiter une connaissance avec moi. Dois-je le déclarer au propriétaire ? Cela implique-t-il de modifier le contrat de location ? Selon que ce soit le cas ou non, quel type de papiers devrais-je faire ? Que devrais-je prévoir selon vous ?
-""")
+# answer_question("""
+# Je suis l'unique locataire d'un 27m² et j'envisage de faire habiter une connaissance avec moi. Dois-je le déclarer au propriétaire ? Cela implique-t-il de modifier le contrat de location ? Selon que ce soit le cas ou non, quel type de papiers devrais-je faire ? Que devrais-je prévoir selon vous ?
+# """)
+
+
+# from sentence_transformers import SentenceTransformer
+# model = SentenceTransformer('multi-qa-MiniLM-L6-cos-v1')
+
+# query_embedding = model.encode('How big is London')
+# passage_embedding = model.encode(['London has 9,787,426 inhabitants at the 2011 census',
+#                                   'London is known for its finacial district'])
+
+# print("Similarity:", util.dot_score(query_embedding, passage_embedding))
+# https://sbert.net/ 
+# from sentence_transformers import SentenceTransformer, util
+# query = "Je suis l'unique locataire d'un 27m² et j'envisage de faire habiter une connaissance avec moi. Dois-je le déclarer au propriétaire ? Cela implique-t-il de modifier le contrat de location ? Selon que ce soit le cas ou non, quel type de papiers devrais-je faire ? Que devrais-je prévoir selon vous ?"
+# # data = json.loads(read("/root/github.com/loicbourgois/legalobot/code-civil.json"))
+# # data = json.loads(read("/root/github.com/loicbourgois/legalobot/code-du-patrimoine.json"))
+# # for x in data:
+# #     print(x['num'])
+# docs = [ x['txt'] for x in data ]
+# #Load the model
+# model = SentenceTransformer('multi-qa-mpnet-base-cos-v1')
+# # model = SentenceTransformer('distiluse-base-multilingual-cased-v2')
+# # model = SentenceTransformer('sentence-transformers/multi-qa-mpnet-base-cos-v1')
+# #Encode query and documents
+# query_emb = model.encode(query)
+# doc_emb = model.encode(docs)
+# #Compute dot score between query and all document embeddings
+# scores = util.dot_score(query_emb, doc_emb)[0].cpu().tolist()
+# #Combine docs & scores
+# doc_score_pairs = list(zip(docs, scores, data))
+# #Sort by decreasing score
+# doc_score_pairs = sorted(doc_score_pairs, key=lambda x: x[1], reverse=True)
+# #Output passages & scores
+# for i, (doc, score, data_point) in enumerate(doc_score_pairs):
+#     if i > 20:
+#         break
+#     print(score, data_point['num'])
+#     print(doc)

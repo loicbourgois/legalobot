@@ -6,4 +6,6 @@ openai
 xmltodict
 matplotlib
 plotly
-# sklearn
+sentence_transformers
+pyarrow
+fastparquet

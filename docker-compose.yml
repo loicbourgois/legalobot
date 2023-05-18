@@ -5,5 +5,7 @@ services:
       context: $HOME/github.com/loicbourgois/$path
       dockerfile: $HOME/github.com/loicbourgois/$path/Dockerfile
     command: /root/github.com/loicbourgois/$path/main.sh
+    env_file:
+      - $HOME/github.com/SPATENYC/secrets/local/openai.env
     volumes:
       - $HOME/github.com/loicbourgois/$path:/root/github.com/loicbourgois/$path:rw
